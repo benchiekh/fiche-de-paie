@@ -1,0 +1,31 @@
+/* src/components/Navbar.css */
+
+.navbar-custom {
+    background-color: #343a40;
+    padding: 1rem;
+  }
+  
+  .navbar-custom .navbar-brand,
+  .navbar-custom .nav-link {
+    color: #ffffff;
+  }
+  
+  .navbar-custom .nav-link:hover {
+    color: #d3d3d3;
+  }
+  
+  .navbar-custom .navbar-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between; /* This distributes space evenly between items */
+    width: 100%;
+  }
+  
+  .navbar-custom .navbar-nav .nav-item {
+    margin-right: 10px; /* Espace entre les éléments de la navbar */
+  }
+  
+  .navbar-custom .navbar-nav .nav-link i {
+    margin-right: 8px; /* Espace entre l'icône et le texte */
+  }
+  
