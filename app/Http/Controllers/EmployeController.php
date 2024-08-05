@@ -1,6 +1,5 @@
 <?php
 
-
 namespace App\Http\Controllers;
 
 use App\Models\Employe;
@@ -10,14 +9,15 @@ class EmployeController extends Controller
 {
     public function index()
     {
-        return Employe::all();
+        return response()->json(Employe::all(), 200);
     }
 
     public function store(Request $request)
     {
         $request->validate([
-            'CIN' => 'required|string|max:20',
-            'CNS' => 'required|string|max:20',
+            'matricule' => 'required|integer|unique:employes',
+            'CIN' => 'required|string|max:20|unique:employes',
+            'CNS' => 'required|string|max:20|unique:employes',
             'nom' => 'required|string|max:255',
             'prenom' => 'required|string|max:255',
             'adresse' => 'required|string|max:255',
@@ -33,12 +33,13 @@ class EmployeController extends Controller
 
         $employe = Employe::create($request->all());
 
-        return response()->json($employe, 201);
-    }
+    return response()->json($employe, 201);
+
+}
 
     public function show($id)
     {
-        return Employe::findOrFail($id);
+        return response()->json(Employe::findOrFail($id), 200);
     }
 
     public function update(Request $request, $id)

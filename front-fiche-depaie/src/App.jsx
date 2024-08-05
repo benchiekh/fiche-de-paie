@@ -13,6 +13,7 @@ import Employes from './components/Employes';
             <Routes>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/Employes" element={<Employes />} />
+                
 
 
                 

@@ -8,6 +8,7 @@ const Employes = () => {
     const [showForm, setShowForm] = useState(false);
     const [editingEmployee, setEditingEmployee] = useState(null);
     const [newEmployee, setNewEmployee] = useState({
+        matricule: '',
         CIN: '',
         CNS: '',
         nom: '',
@@ -22,7 +23,6 @@ const Employes = () => {
         enfantsACharge: '',
         affiliationCNSS: '',
     });
-    const [selectedEmployee, setSelectedEmployee] = useState(null);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(false);
 
@@ -62,37 +62,46 @@ const Employes = () => {
                 body: JSON.stringify(newEmployee),
             });
     
-            if (!response.ok) {
-                throw new Error('Failed to add employee');
-            }
+            // Affichez la réponse brute pour le débogage
+            const text = await response.text();
+            console.log('Response Text:', text);
     
-            const data = await response.json();
-            setEmployees([...employees, data]);
-            setSuccess(true);
-            setError(null);
-            setShowForm(false);
-            setNewEmployee({
-                CIN: '',
-                CNS: '',
-                nom: '',
-                prenom: '',
-                adresse: '',
-                emploi: '',
-                categorie: '',
-                echelon: '',
-                situationFamiliale: '',
-                salaireDeBase: '',
-                tauxHoraire: '',
-                enfantsACharge: '',
-                affiliationCNSS: '',
-            });
+            // Essayez de parser la réponse en JSON
+            try {
+                const data = JSON.parse(text);
+                if (!response.ok) {
+                    throw new Error(`Failed to add employee: ${JSON.stringify(data.errors)}`);
+                }
+                setEmployees([...employees, data]);
+                setSuccess(true);
+                setError(null);
+                setShowForm(false);
+                setNewEmployee({
+                    matricule: '',
+                    CIN: '',
+                    CNS: '',
+                    nom: '',
+                    prenom: '',
+                    adresse: '',
+                    emploi: '',
+                    categorie: '',
+                    echelon: '',
+                    situationFamiliale: '',
+                    salaireDeBase: '',
+                    tauxHoraire: '',
+                    enfantsACharge: '',
+                    affiliationCNSS: '',
+                });
+            } catch (e) {
+                throw new Error('Invalid JSON response');
+            }
         } catch (error) {
             console.error('Error:', error);
-            setError('Failed to add employee');
+            setError(`Failed to add employee: ${error.message}`);
             setSuccess(false);
         }
     };
-
+        
     const handleEditEmployee = async (id) => {
         try {
             const response = await fetch(`http://127.0.0.1:8000/api/employes/${id}`, {
@@ -114,6 +123,7 @@ const Employes = () => {
             setShowForm(false);
             setEditingEmployee(null);
             setNewEmployee({
+                matricule: '',
                 CIN: '',
                 CNS: '',
                 nom: '',
@@ -158,6 +168,7 @@ const Employes = () => {
     const handleEditButtonClick = (employee) => {
         setEditingEmployee(employee.id);
         setNewEmployee({
+            matricule: employee.matricule,
             CIN: employee.CIN,
             CNS: employee.CNS,
             nom: employee.nom,
@@ -184,6 +195,9 @@ const Employes = () => {
             {error && <Alert variant="danger">{error}</Alert>}
             {success && <Alert variant="success">Operation completed successfully!</Alert>}
             <div className="cards-container">
+                <Button className="btn-info" onClick={() => setShowForm(!showForm)}>
+                    {showForm ? 'Annuler' : 'Ajouter un Employé'}
+                </Button>
                 {employees.map((employee) => (
                     <Card key={employee.id} className="custom-card" onClick={() => handleCardClick(employee)}>
                         <Card.Body>
@@ -205,35 +219,14 @@ const Employes = () => {
                             <div className="card-buttons">
                                 <Button className="btn-primary" onClick={() => handleEditButtonClick(employee)}>Modifier</Button>
                                 <Button className="btn-danger" onClick={() => handleDeleteEmployee(employee.id)}>Supprimer</Button>
+                                {/* <Link to={`/fiche_de_paies/create/${selectedEmployee.id}`}>
+                                <Button className="btn-secondary">Créer Fiche de Paie</Button>
+                            </Link> */}
                             </div>
                         </Card.Body>
                     </Card>
                 ))}
             </div>
-            <Button className="btn-info" onClick={() => setShowForm(!showForm)}>
-                {showForm ? 'Annuler' : 'Ajouter un Employé'}
-            </Button>
-            {selectedEmployee && (
-                <Card className="selected-employee-card mt-3">
-                    <Card.Body>
-                        <Card.Title>{selectedEmployee.nom} {selectedEmployee.prenom}</Card.Title>
-                        <Card.Subtitle className="mb-2 text-muted">{selectedEmployee.emploi}</Card.Subtitle>
-                        <Card.Text>
-                            <strong>CIN:</strong> {selectedEmployee.CIN}<br />
-                            <strong>CNS:</strong> {selectedEmployee.CNS}<br />
-                            <strong>Adresse:</strong> {selectedEmployee.adresse}<br />
-                            <strong>Emploi:</strong> {selectedEmployee.emploi}<br />
-                            <strong>Catégorie:</strong> {selectedEmployee.categorie}<br />
-                            <strong>Échelon:</strong> {selectedEmployee.echelon}<br />
-                            <strong>Situation Familiale:</strong> {selectedEmployee.situationFamiliale}<br />
-                            <strong>Salaire de Base:</strong> {selectedEmployee.salaireDeBase}<br />
-                            <strong>Taux Horaire:</strong> {selectedEmployee.tauxHoraire}<br />
-                            <strong>Enfants à Charge:</strong> {selectedEmployee.enfantsACharge}<br />
-                            <strong>Affiliation CNSS:</strong> {selectedEmployee.affiliationCNSS}
-                        </Card.Text>
-                    </Card.Body>
-                </Card>
-            )}
             <Toast
                 show={showForm}
                 onClose={() => setShowForm(false)}
@@ -249,6 +242,16 @@ const Employes = () => {
                 </Toast.Header>
                 <Toast.Body>
                     <Form>
+                        <Form.Group>
+                            <Form.Label>Matricule</Form.Label>
+                            <Form.Control
+                                type="text"
+                                name="matricule"
+                                value={newEmployee.matricule}
+                                onChange={handleInputChange}
+                                placeholder="Entrez matricule"
+                            />
+                        </Form.Group>
                         <Form.Group>
                             <Form.Label>CIN</Form.Label>
                             <Form.Control
