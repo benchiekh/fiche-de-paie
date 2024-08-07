@@ -16,8 +16,8 @@ class SalaireBrutController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'fiche_de_paie_id' => 'required|exists:fiche_de_paies,id',
-            'salaireHoraireBase' => 'required|numeric',
+        'fiche_de_paie_id' => 'required|exists:fiche_de_paies,id',
+        'salaireHoraireBase' => 'required|numeric',
             'salaireMensuelBase' => 'required|numeric',
             'indemniteTransport' => 'required|numeric',
             'indemniteTransport93' => 'required|numeric',

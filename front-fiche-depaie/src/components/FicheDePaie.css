@@ -1,0 +1,15 @@
+.salary-form .card {
+    background-color: #f9f9f9;
+}
+
+.salary-form .form-group {
+    margin-bottom: 15px;
+}
+
+.salary-form .btn-primary {
+    margin-top: 10px;
+}
+
+.salary-form .alert {
+    margin-top: 10px;
+}

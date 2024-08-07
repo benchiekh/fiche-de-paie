@@ -13,17 +13,17 @@ const CustomNavbar = () => {
       <Navbar.Toggle aria-controls="basic-navbar-nav" />
       <Navbar.Collapse id="basic-navbar-nav">
         <Nav className="ml-auto navbar-nav">
-          <LinkContainer to="/dashboard">
+          <LinkContainer to="/">
             <Nav.Link>
               <i className="bi bi-speedometer2"></i> Dashboard
             </Nav.Link>
           </LinkContainer>
-          <LinkContainer to="/payslips">
+          <LinkContainer to="/fiche-de-paie">
             <Nav.Link>
               <i className="bi bi-receipt"></i> Fiche de paie
             </Nav.Link>
           </LinkContainer>
-          <LinkContainer to="/employees">
+          <LinkContainer to="/Employes">
             <Nav.Link>
               <i className="bi bi-people"></i> Employees
             </Nav.Link>
