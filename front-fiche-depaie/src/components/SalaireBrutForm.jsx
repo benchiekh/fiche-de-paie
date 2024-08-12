@@ -255,4 +255,3 @@ const SalaireBrutForm = ({ ficheDePaieId, onSuccess, onError }) => {
 };
 
 export default SalaireBrutForm;
-

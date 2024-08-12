@@ -48,6 +48,7 @@ class SalaireBrutController extends Controller
     public function update(Request $request, $id)
     {
         $request->validate([
+            'fiche_de_paie_id' => 'required|exists:fiche_de_paies,id',
             'salaireHoraireBase' => 'numeric',
             'salaireMensuelBase' => 'numeric',
             'indemniteTransport' => 'numeric',

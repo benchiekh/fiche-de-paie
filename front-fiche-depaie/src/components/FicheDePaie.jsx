@@ -1,33 +1,51 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Collapse, Form, Alert } from 'react-bootstrap';
+import { Card, Button, Collapse, Form, Alert, Modal } from 'react-bootstrap';
 import { useLocation } from 'react-router-dom';
-import SalaireBrutForm from './SalaireBrutForm';
-import CotisationsForm from './CotisationForm';
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable'; // Pour générer des tables dans le PDF
+
+import SalaireBrutForm from './SalaireBrutForm'; // Vérifiez le chemin du fichier
+import CotisationForm from './CotisationForm';
 import NetForm from './NetForm';
-
-
 
 const FicheDePaie = () => {
     const location = useLocation();
     const [employee, setEmployee] = useState(null);
     const [showSalaryDetails, setShowSalaryDetails] = useState(false);
     const [showSalaireBrutForm, setShowSalaireBrutForm] = useState(false);
-    const [showCotisationsForm, setShowCotisationsForm] = useState(false);
+    const [showCotisationForm, setShowCotisationForm] = useState(false);
     const [showNetForm, setShowNetForm] = useState(false);
-    const [ficheDePaie, setFicheDePaie] = useState({
-        mois: '',
-        annee: '',
-        salaireBrut: '',
-        cotisations: '',
-        netAPayer: ''
-    });
+    const [showModal, setShowModal] = useState(false);
+    const [ficheDePaie, setFicheDePaie] = useState([]);
+    const [selectedFiche, setSelectedFiche] = useState(null);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(false);
 
     useEffect(() => {
         const employeeData = location.state?.employee;
         setEmployee(employeeData);
+        if (employeeData) {
+            fetchFicheDePaie(employeeData.id);
+        }
     }, [location.state]);
+
+    const fetchFicheDePaie = async (employeeId) => {
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/fiche_de_paies`);
+            if (response.ok) {
+                const data = await response.json();
+                const filteredData = data.filter(fiche => fiche.employe_id === employeeId);
+                setFicheDePaie(filteredData);
+            } else {
+                const errorText = await response.text();
+                console.error('Erreur API:', errorText);
+                setError('Erreur lors de la récupération des fiches de paie.');
+            }
+        } catch (error) {
+            console.error('Erreur:', error);
+            setError('Erreur lors de la récupération des fiches de paie.');
+        }
+    };
 
     const handleToggleSalaryDetails = () => {
         setShowSalaryDetails(!showSalaryDetails);
@@ -37,8 +55,8 @@ const FicheDePaie = () => {
         setShowSalaireBrutForm(!showSalaireBrutForm);
     };
 
-    const handleToggleCotisationsForm = () => {
-        setShowCotisationsForm(!showCotisationsForm);
+    const handleToggleCotisationForm = () => {
+        setShowCotisationForm(!showCotisationForm);
     };
 
     const handleToggleNetForm = () => {
@@ -47,14 +65,15 @@ const FicheDePaie = () => {
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        setFicheDePaie({
-            ...ficheDePaie,
+        setFicheDePaie(prevState => ({
+            ...prevState,
             [name]: value,
-        });
+        }));
     };
 
     const handleFormSubmit = async (e) => {
         e.preventDefault();
+        
         try {
             const response = await fetch('http://127.0.0.1:8000/api/fiche_de_paies', {
                 method: 'POST',
@@ -62,31 +81,50 @@ const FicheDePaie = () => {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    employe_id: employee.id, // Assurez-vous que `employee.id` est défini
-                    ...ficheDePaie,
+                    employe_id: employee.id,
+                    mois: ficheDePaie.mois,
+                    annee: ficheDePaie.annee,
+                    salaireBrut: ficheDePaie.salaireBrut,
+                    cotisations: ficheDePaie.cotisations,
+                    netAPayer: ficheDePaie.netAPayer,
+                    commentaires: ficheDePaie.commentaires,
                 }),
             });
-
-            if (!response.ok) {
+    
+            if (response.ok) {
+                // Réinitialiser les champs du formulaire après succès
+                setFicheDePaie({
+                    mois: '',
+                    annee: '',
+                    salaireBrut: '',
+                    cotisations: '',
+                    netAPayer: '',
+                    commentaires: '',
+                });
+                
+                // Rafraîchir les fiches de paie
+                fetchFicheDePaie(employee.id);
+    
+                setSuccess(true);
+                setError(null);
+            } else {
                 const errorDetails = await response.json();
                 throw new Error(`Échec de l'ajout de la fiche de paie: ${errorDetails.message}`);
             }
-
-            setSuccess(true);
-            setError(null);
-            setFicheDePaie({
-                mois: '',
-                annee: '',
-                salaireBrut: '',
-                cotisations: '',
-                netAPayer: '',
-
-            });
         } catch (error) {
             console.error('Erreur:', error);
             setError(error.message);
             setSuccess(false);
         }
+    };
+
+    const handleDownloadPDF = async (fiche) => {
+        // Votre code pour télécharger le PDF va ici
+    };
+
+    const handleAddCotisation = (fiche) => {
+        setSelectedFiche(fiche);
+        setShowCotisationForm(true);
     };
 
     if (!employee) {
@@ -113,63 +151,55 @@ const FicheDePaie = () => {
                         <strong>Affiliation CNSS:</strong> {employee.affiliationCNSS}
                     </Card.Text>
                     <Button variant="info" onClick={handleToggleSalaryDetails}>
-                        {showSalaryDetails ? 'Masquer fiche de paie ' : 'Afficher fiche de paie '}
+                        {showSalaryDetails ? 'Masquer fiche de paie' : 'Afficher fiche de paie'}
                     </Button>
-
+                    <Button variant="primary" className="mt-2" onClick={() => setShowModal(true)}>
+                        Créer Fiche de Paie
+                    </Button>
                 </Card.Body>
             </Card>
+
             <Collapse in={showSalaryDetails}>
                 <div className="salary-details mt-3">
-                    <Card>
-                        <Card.Body>
-                            <Card.Title>Rubrique de Salaire</Card.Title>
-                            <Card.Text>
-                                <strong>Salaire Horaire de Base:</strong> {employee.salaireHoraireBase}<br />
-                                <strong>Salaire Mensuel de Base:</strong> {employee.salaireMensuelBase}<br />
-                                <strong>Indemnité Transport:</strong> {employee.indemniteTransport}<br />
-                                <strong>Indemnité Transport 93:</strong> {employee.indemniteTransport93}<br />
-                                <strong>Indemnité Logement:</strong> {employee.indemniteLogement}<br />
-                                <strong>Prime Présence Horaire:</strong> {employee.primePresenceHoraire}<br />
-                                <strong>Prime Présence Mensuelle:</strong> {employee.primePresenceMensuelle}<br />
-                                <strong>Prime Transport Horaire:</strong> {employee.primeTransportHoraire}<br />
-                                <strong>Prime Transport Mensuelle:</strong> {employee.primeTransportMensuelle}<br />
-                                <strong>Prime Logement:</strong> {employee.primeLogement}<br />
-                                <strong>Prime Exceptionnelle:</strong> {employee.primeExceptionnelle}<br />
-                                <strong>Prime Pénibilité:</strong> {employee.primePenibilite}<br />
-                                <strong>Prime Nuit:</strong> {employee.primeNuit}<br />
-                                <strong>Prime Panier:</strong> {employee.primePanier}<br />
-                                <strong>Prime Productivité:</strong> {employee.primeProductivite}<br />
-                                <strong>Heures de Nuit:</strong> {employee.heuresNuit}
-                            </Card.Text>
-                        </Card.Body>
-                    </Card>
+                    {ficheDePaie.length > 0 ? (
+                        ficheDePaie.map((fiche, index) => (
+                            <Card className="mt-2" key={index}>
+                                <Card.Body>
+                                    <Card.Title>Fiche de Paie {index + 1}</Card.Title>
+                                    <Card.Text>
+                                        <strong>Mois:</strong> {fiche.mois || 'N/A'}<br />
+                                        <strong>Année:</strong> {fiche.annee || 'N/A'}<br />
+                                        <strong>Salaire Brut:</strong> {fiche.salaireBrut || 'N/A'}<br />
+                                        <strong>Cotisations:</strong> {fiche.cotisations || 'N/A'}<br />
+                                        <strong>Net à Payer:</strong> {fiche.netAPayer || 'N/A'}<br />
+                                    </Card.Text>
+                                    <Button variant="success" className="mt-2" onClick={() => handleDownloadPDF(fiche)}>
+                                        Télécharger PDF
+                                    </Button>
+                                    <Button variant="warning" className="mt-2" onClick={() => handleAddCotisation(fiche)}>
+                                        Ajouter Cotisation
+                                    </Button>
+                                </Card.Body>
+                            </Card>
+                        ))
+                    ) : (
+                        <div>Aucune fiche de paie disponible.</div>
+                    )}
                 </div>
             </Collapse>
-            <Collapse in={showSalaireBrutForm}>
-                <div className="salary-brut-form mt-3">
-                    <SalaireBrutForm ficheDePaieId={employee.id} onSuccess={() => alert('Salaire Brut ajouté avec succès !!!')} onError={(error) => alert(error)} />
-                </div>
-            </Collapse>
-            <Collapse in={showCotisationsForm}>
-                <div className="cotisations-form mt-3">
-                    <CotisationsForm ficheDePaieId={employee.id} onSuccess={() => alert('Cotisation ajoutée avec succès!!')} onError={(error) => alert(error)} />
-                </div>
-            </Collapse>
-            <Collapse in={showNetForm}>
-                <div className="net-form mt-3">
-                    <NetForm ficheDePaieId={employee.id} onSuccess={() => alert('Net ajouté avec succès!!')} onError={(error) => alert(error)} />
-                </div>
-            </Collapse>
-            <Card className="mt-3">
-                <Card.Body>
-                    <Card.Title>Créer Fiche de Paie</Card.Title>
+
+            <Modal show={showModal} onHide={() => setShowModal(false)}>
+                <Modal.Header closeButton>
+                    <Modal.Title>Créer Fiche de Paie</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
                     <Form onSubmit={handleFormSubmit}>
                         <Form.Group>
                             <Form.Label>Mois</Form.Label>
                             <Form.Control
                                 type="text"
                                 name="mois"
-                                value={ficheDePaie.mois}
+                                value={ficheDePaie.mois || ''}
                                 onChange={handleInputChange}
                                 placeholder="Entrez le mois"
                             />
@@ -177,9 +207,9 @@ const FicheDePaie = () => {
                         <Form.Group>
                             <Form.Label>Année</Form.Label>
                             <Form.Control
-                                type="number"
+                                type="text"
                                 name="annee"
-                                value={ficheDePaie.annee}
+                                value={ficheDePaie.annee || ''}
                                 onChange={handleInputChange}
                                 placeholder="Entrez l'année"
                             />
@@ -189,7 +219,7 @@ const FicheDePaie = () => {
                             <Form.Control
                                 type="number"
                                 name="salaireBrut"
-                                value={ficheDePaie.salaireBrut}
+                                value={ficheDePaie.salaireBrut || ''}
                                 onChange={handleInputChange}
                                 placeholder="Entrez le salaire brut"
                             />
@@ -197,9 +227,9 @@ const FicheDePaie = () => {
                         <Form.Group>
                             <Form.Label>Cotisations</Form.Label>
                             <Form.Control
-                                type="number"
+                                type="text"
                                 name="cotisations"
-                                value={ficheDePaie.cotisations}
+                                value={ficheDePaie.cotisations || ''}
                                 onChange={handleInputChange}
                                 placeholder="Entrez les cotisations"
                             />
@@ -209,29 +239,54 @@ const FicheDePaie = () => {
                             <Form.Control
                                 type="number"
                                 name="netAPayer"
-                                value={ficheDePaie.netAPayer}
+                                value={ficheDePaie.netAPayer || ''}
                                 onChange={handleInputChange}
                                 placeholder="Entrez le net à payer"
                             />
                         </Form.Group>
-
-                        <Button variant="primary" type="submit">
-                            Créer Fiche de Paie
-                        </Button>
-                        <Button variant="success" onClick={handleToggleSalaireBrutForm} className="mt-2">
-                            {showSalaireBrutForm ? 'Masquer Formulaire Salaire Brut' : 'Ajouter Salaire Brut'}
-                        </Button>
-                        <Button variant="warning" onClick={handleToggleCotisationsForm} className="mt-2">
-                            {showCotisationsForm ? 'Masquer Formulaire Cotisations' : 'Ajouter Cotisations'}
-                        </Button>
-                        <Button variant="secondary" onClick={handleToggleNetForm} className="mt-2">
-                            {showNetForm ? 'Masquer Formulaire Net' : 'Ajouter Net'}
-                        </Button>
+                        <Form.Group>
+                            <Form.Label>Commentaires</Form.Label>
+                            <Form.Control
+                                as="textarea"
+                                name="commentaires"
+                                value={ficheDePaie.commentaires || ''}
+                                onChange={handleInputChange}
+                                placeholder="Ajoutez des commentaires"
+                            />
+                        </Form.Group>
+                        {error && <Alert variant="danger">{error}</Alert>}
+                        {success && <Alert variant="success">Fiche de paie créée avec succès !</Alert>}
+                        <Button variant="primary" type="submit">Enregistrer</Button>
                     </Form>
-                    {success && <Alert variant="success" className="mt-3">Fiche de paie créée avec succès!</Alert>}
-                    {error && <Alert variant="danger" className="mt-3">{error}</Alert>}
-                </Card.Body>
-            </Card>
+                </Modal.Body>
+            </Modal>
+
+            <Modal show={showCotisationForm} onHide={() => setShowCotisationForm(false)}>
+                <Modal.Header closeButton>
+                    <Modal.Title>Ajouter Cotisation</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <CotisationForm ficheDePaie={selectedFiche} />
+                </Modal.Body>
+            </Modal>
+
+            <Modal show={showSalaireBrutForm} onHide={() => setShowSalaireBrutForm(false)}>
+                <Modal.Header closeButton>
+                    <Modal.Title>Salaire Brut</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <SalaireBrutForm ficheDePaie={selectedFiche} />
+                </Modal.Body>
+            </Modal>
+
+            <Modal show={showNetForm} onHide={() => setShowNetForm(false)}>
+                <Modal.Header closeButton>
+                    <Modal.Title>Net à Payer</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <NetForm ficheDePaie={selectedFiche} />
+                </Modal.Body>
+            </Modal>
         </div>
     );
 };

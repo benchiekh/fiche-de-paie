@@ -30,6 +30,7 @@ class EmployeController extends Controller
             'enfantsACharge' => 'required|integer',
             'affiliationCNSS' => 'required|string|max:20',
         ]);
+        
 
         $employe = Employe::create($request->all());
 

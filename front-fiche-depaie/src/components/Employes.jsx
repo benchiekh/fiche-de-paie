@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Form, Alert } from 'react-bootstrap';
+import { Card, Button, Form, Alert, Modal } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import './Employes.css';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const Employes = () => {
     const [employees, setEmployees] = useState([]);
@@ -25,6 +27,8 @@ const Employes = () => {
     });
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(false);
+    const [searchMatricule, setSearchMatricule] = useState('');
+    const [filteredEmployees, setFilteredEmployees] = useState([]);
 
     const navigate = useNavigate();
 
@@ -40,6 +44,7 @@ const Employes = () => {
             }
             const data = await response.json();
             setEmployees(data);
+            setFilteredEmployees(data);
         } catch (error) {
             console.error('Error:', error);
             setError(error.message);
@@ -54,6 +59,14 @@ const Employes = () => {
         });
     };
 
+    const handleSearchMatriculeChange = (e) => {
+        setSearchMatricule(e.target.value);
+    };
+
+    const handleSearch = () => {
+        const results = employees.filter(emp => String(emp.matricule).includes(searchMatricule));
+        setFilteredEmployees(results);
+    };
     const handleAddEmployee = async () => {
         try {
             const response = await fetch('http://127.0.0.1:8000/api/employes', {
@@ -63,46 +76,56 @@ const Employes = () => {
                 },
                 body: JSON.stringify(newEmployee),
             });
-
-            const text = await response.text(); // Lire la réponse en texte brut
-            console.log('Response Text:', text); // Afficher la réponse brute pour débogage
-
-            try {
-                const data = JSON.parse(text); // Tenter de parser la réponse en JSON
-                if (!response.ok) {
-                    throw new Error(`Failed to add employee: ${JSON.stringify(data.errors)}`);
-                }
-                setEmployees([...employees, data]);
-                setSuccess(true);
-                setError(null);
-                setShowForm(false);
-                setNewEmployee({
-                    matricule: '',
-                    CIN: '',
-                    CNS: '',
-                    nom: '',
-                    prenom: '',
-                    adresse: '',
-                    emploi: '',
-                    categorie: '',
-                    echelon: '',
-                    situationFamiliale: '',
-                    salaireDeBase: '',
-                    tauxHoraire: '',
-                    enfantsACharge: '',
-                    affiliationCNSS: '',
-                });
-            } catch (e) {
-                throw new Error('Invalid JSON response');
+    
+            // Vérifiez le Content-Type de la réponse
+            const contentType = response.headers.get('content-type');
+            const isJson = contentType && contentType.includes('application/json');
+    
+            if (!response.ok) {
+                throw new Error('Échec de l\'ajout de l\'employé');
             }
+    
+            if (!isJson) {
+                // Si la réponse n'est pas au format JSON
+                const text = await response.text();
+                console.error('Réponse brute non JSON:', text);
+                throw new Error('La réponse n\'était pas au format JSON');
+            }
+    
+            // Traitement de la réponse JSON
+            const data = await response.json();
+            console.log('Réponse de l\'API:', data);
+    
+            // Ajoutez l'employé à la liste
+            setEmployees([...employees, data]);
+            setSuccess(true);
+            setError(null);
+            setShowForm(false);
+            setNewEmployee({
+                matricule: '',
+                CIN: '',
+                CNS: '',
+                nom: '',
+                prenom: '',
+                adresse: '',
+                emploi: '',
+                categorie: '',
+                echelon: '',
+                situationFamiliale: '',
+                salaireDeBase: '',
+                tauxHoraire: '',
+                enfantsACharge: '',
+                affiliationCNSS: '',
+            });
         } catch (error) {
-            console.error('Error:', error);
-            setError(`Failed to add employee: ${error.message}`);
+            console.error('Erreur lors de l\'ajout de l\'employé:', error.message);
+            setError(`Erreur lors de l'ajout de l'employé : ${error.message}`);
             setSuccess(false);
         }
     };
-
+        
     const handleEditEmployee = async (id) => {
+        setError(null); // Clear previous errors
         try {
             const response = await fetch(`http://127.0.0.1:8000/api/employes/${id}`, {
                 method: 'PUT',
@@ -112,14 +135,15 @@ const Employes = () => {
                 body: JSON.stringify(newEmployee),
             });
 
+            const updatedEmployee = await response.json();
             if (!response.ok) {
                 throw new Error('Something went wrong');
             }
 
-            const updatedEmployee = await response.json();
-            setEmployees(employees.map(emp => emp.id === id ? updatedEmployee : emp));
+            const updatedEmployees = employees.map(emp => emp.id === id ? updatedEmployee : emp);
+            setEmployees(updatedEmployees);
+            setFilteredEmployees(updatedEmployees);
             setSuccess(true);
-            setError(null);
             setShowForm(false);
             setEditingEmployee(null);
             setNewEmployee({
@@ -138,14 +162,16 @@ const Employes = () => {
                 enfantsACharge: '',
                 affiliationCNSS: '',
             });
+            toast.success('Employé modifié avec succès !');
         } catch (error) {
             console.error('Error:', error);
             setError(error.message);
-            setSuccess(false);
+            toast.error('Erreur lors de la modification de l\'employé : ' + error.message);
         }
     };
 
     const handleDeleteEmployee = async (id) => {
+        setError(null); // Clear previous errors
         try {
             const response = await fetch(`http://127.0.0.1:8000/api/employes/${id}`, {
                 method: 'DELETE',
@@ -155,19 +181,22 @@ const Employes = () => {
                 throw new Error('Failed to delete employee');
             }
 
-            setEmployees(employees.filter(emp => emp.id !== id));
+            const updatedEmployees = employees.filter(emp => emp.id !== id);
+            setEmployees(updatedEmployees);
+            setFilteredEmployees(updatedEmployees);
             setSuccess(true);
-            setError(null);
+            toast.success('Employé supprimé avec succès !');
         } catch (error) {
             console.error('Error:', error);
             setError(error.message);
-            setSuccess(false);
+            toast.error('Erreur lors de la suppression de l\'employé : ' + error.message);
         }
     };
 
     const handleEditButtonClick = (employee) => {
         setEditingEmployee(employee.id);
         setNewEmployee({
+            matricule: employee.matricule,
             CIN: employee.CIN,
             CNS: employee.CNS,
             nom: employee.nom,
@@ -189,23 +218,34 @@ const Employes = () => {
         navigate('/fiche-de-paie', { state: { employee } });
     };
 
-
     return (
         <div className="employees-container">
             {error && <Alert variant="danger">{error}</Alert>}
             {success && <Alert variant="success">Opération réussie !</Alert>}
-            
-            <Button className="btn-info mb-3" onClick={() => setShowForm(!showForm)}>
-                {showForm ? 'Annuler' : 'Ajouter un Employé'}
-            </Button>
-            
+
+            <div className="d-flex mb-3">
+                <Button className="btn-info me-3" onClick={() => setShowForm(true)}>
+                    Ajouter un Employé
+                </Button>
+
+                <Form.Control
+                    type="text"
+                    placeholder="Rechercher par matricule"
+                    value={searchMatricule}
+                    onChange={handleSearchMatriculeChange}
+                    className="me-3"
+                />
+                <Button className="btn-primary" onClick={handleSearch}>Rechercher</Button>
+            </div>
+
             <div className="cards-container">
-                {employees.map((employee) => (
+                {filteredEmployees.map((employee) => (
                     <Card key={employee.id} className="custom-card">
                         <Card.Body>
                             <Card.Title>{employee.nom} {employee.prenom}</Card.Title>
                             <Card.Subtitle className="mb-2 text-muted">{employee.emploi}</Card.Subtitle>
                             <Card.Text>
+                                <strong>Matricule:</strong> {employee.matricule}<br />
                                 <strong>CIN:</strong> {employee.CIN}<br />
                                 <strong>CNS:</strong> {employee.CNS}<br />
                                 <strong>Adresse:</strong> {employee.adresse}<br />
@@ -221,162 +261,160 @@ const Employes = () => {
                             <div className="card-buttons">
                                 <Button className="btn-primary" onClick={() => handleEditButtonClick(employee)}>Modifier</Button>
                                 <Button className="btn-danger" onClick={() => handleDeleteEmployee(employee.id)}>Supprimer</Button>
-                                <Button className="btn-info" onClick={() => handleCreateFicheDePaie(employee)}>Créer Fiche de Paie</Button>
+                                <Button className="btn-success" onClick={() => handleCreateFicheDePaie(employee)}>Fiche de Paie</Button>
                             </div>
                         </Card.Body>
                     </Card>
                 ))}
             </div>
-    
-            {showForm && (
-                <Form className="mt-3">
-                    <Form.Group controlId="formMatricule">
-                        <Form.Label>Matricule</Form.Label>
-                        <Form.Control
-                            type="text"
-                            name="matricule"
-                            value={newEmployee.matricule}
-                            onChange={handleInputChange}
-                            placeholder="Entrez le matricule"
-                        />
-                    </Form.Group>
-                    <Form.Group controlId="formCIN">
-                        <Form.Label>CIN</Form.Label>
-                        <Form.Control
-                            type="text"
-                            name="CIN"
-                            value={newEmployee.CIN}
-                            onChange={handleInputChange}
-                            placeholder="Entrez le CIN"
-                        />
-                    </Form.Group>
-                    <Form.Group controlId="formCNS">
-                        <Form.Label>CNS</Form.Label>
-                        <Form.Control
-                            type="text"
-                            name="CNS"
-                            value={newEmployee.CNS}
-                            onChange={handleInputChange}
-                            placeholder="Entrez le CNS"
-                        />
-                    </Form.Group>
-                    <Form.Group controlId="formNom">
-                        <Form.Label>Nom</Form.Label>
-                        <Form.Control
-                            type="text"
-                            name="nom"
-                            value={newEmployee.nom}
-                            onChange={handleInputChange}
-                            placeholder="Entrez le nom"
-                        />
-                    </Form.Group>
-                    <Form.Group controlId="formPrenom">
-                        <Form.Label>Prénom</Form.Label>
-                        <Form.Control
-                            type="text"
-                            name="prenom"
-                            value={newEmployee.prenom}
-                            onChange={handleInputChange}
-                            placeholder="Entrez le prénom"
-                        />
-                    </Form.Group>
-                    <Form.Group controlId="formAdresse">
-                        <Form.Label>Adresse</Form.Label>
-                        <Form.Control
-                            type="text"
-                            name="adresse"
-                            value={newEmployee.adresse}
-                            onChange={handleInputChange}
-                            placeholder="Entrez l'adresse"
-                        />
-                    </Form.Group>
-                    <Form.Group controlId="formEmploi">
-                        <Form.Label>Emploi</Form.Label>
-                        <Form.Control
-                            type="text"
-                            name="emploi"
-                            value={newEmployee.emploi}
-                            onChange={handleInputChange}
-                            placeholder="Entrez l'emploi"
-                        />
-                    </Form.Group>
-                    <Form.Group controlId="formCategorie">
-                        <Form.Label>Catégorie</Form.Label>
-                        <Form.Control
-                            type="text"
-                            name="categorie"
-                            value={newEmployee.categorie}
-                            onChange={handleInputChange}
-                            placeholder="Entrez la catégorie"
-                        />
-                    </Form.Group>
-                    <Form.Group controlId="formEchelon">
-                        <Form.Label>Échelon</Form.Label>
-                        <Form.Control
-                            type="text"
-                            name="echelon"
-                            value={newEmployee.echelon}
-                            onChange={handleInputChange}
-                            placeholder="Entrez l'échelon"
-                        />
-                    </Form.Group>
-                    <Form.Group controlId="formSituationFamiliale">
-                        <Form.Label>Situation Familiale</Form.Label>
-                        <Form.Control
-                            type="text"
-                            name="situationFamiliale"
-                            value={newEmployee.situationFamiliale}
-                            onChange={handleInputChange}
-                            placeholder="Entrez la situation familiale"
-                        />
-                    </Form.Group>
-                    <Form.Group controlId="formSalaireDeBase">
-                        <Form.Label>Salaire de Base</Form.Label>
-                        <Form.Control
-                            type="number"
-                            name="salaireDeBase"
-                            value={newEmployee.salaireDeBase}
-                            onChange={handleInputChange}
-                            placeholder="Entrez le salaire de base"
-                        />
-                    </Form.Group>
-                    <Form.Group controlId="formTauxHoraire">
-                        <Form.Label>Taux Horaire</Form.Label>
-                        <Form.Control
-                            type="number"
-                            name="tauxHoraire"
-                            value={newEmployee.tauxHoraire}
-                            onChange={handleInputChange}
-                            placeholder="Entrez le taux horaire"
-                        />
-                    </Form.Group>
-                    <Form.Group controlId="formEnfantsACharge">
-                        <Form.Label>Enfants à Charge</Form.Label>
-                        <Form.Control
-                            type="number"
-                            name="enfantsACharge"
-                            value={newEmployee.enfantsACharge}
-                            onChange={handleInputChange}
-                            placeholder="Entrez le nombre d'enfants à charge"
-                        />
-                    </Form.Group>
-                    <Form.Group controlId="formAffiliationCNSS">
-                        <Form.Label>Affiliation CNSS</Form.Label>
-                        <Form.Control
-                            type="text"
-                            name="affiliationCNSS"
-                            value={newEmployee.affiliationCNSS}
-                            onChange={handleInputChange}
-                            placeholder="Entrez l'affiliation CNSS"
-                        />
-                    </Form.Group>
-                    <Button className="btn-primary mt-3" onClick={editingEmployee ? () => handleEditEmployee(editingEmployee) : handleAddEmployee}>
+
+            <ToastContainer />
+
+            <Modal show={showForm} onHide={() => setShowForm(false)}>
+                <Modal.Header closeButton>
+                    <Modal.Title>{editingEmployee ? 'Modifier' : 'Ajouter'} un Employé</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <Form>
+                        <Form.Group controlId="formMatricule">
+                            <Form.Label>Matricule</Form.Label>
+                            <Form.Control
+                                type="text"
+                                name="matricule"
+                                value={newEmployee.matricule}
+                                onChange={handleInputChange}
+                            />
+                        </Form.Group>
+                        <Form.Group controlId="formCIN">
+                            <Form.Label>CIN</Form.Label>
+                            <Form.Control
+                                type="text"
+                                name="CIN"
+                                value={newEmployee.CIN}
+                                onChange={handleInputChange}
+                            />
+                        </Form.Group>
+                        <Form.Group controlId="formCNS">
+                            <Form.Label>CNS</Form.Label>
+                            <Form.Control
+                                type="text"
+                                name="CNS"
+                                value={newEmployee.CNS}
+                                onChange={handleInputChange}
+                            />
+                        </Form.Group>
+                        <Form.Group controlId="formNom">
+                            <Form.Label>Nom</Form.Label>
+                            <Form.Control
+                                type="text"
+                                name="nom"
+                                value={newEmployee.nom}
+                                onChange={handleInputChange}
+                            />
+                        </Form.Group>
+                        <Form.Group controlId="formPrenom">
+                            <Form.Label>Prénom</Form.Label>
+                            <Form.Control
+                                type="text"
+                                name="prenom"
+                                value={newEmployee.prenom}
+                                onChange={handleInputChange}
+                            />
+                        </Form.Group>
+                        <Form.Group controlId="formAdresse">
+                            <Form.Label>Adresse</Form.Label>
+                            <Form.Control
+                                type="text"
+                                name="adresse"
+                                value={newEmployee.adresse}
+                                onChange={handleInputChange}
+                            />
+                        </Form.Group>
+                        <Form.Group controlId="formEmploi">
+                            <Form.Label>Emploi</Form.Label>
+                            <Form.Control
+                                type="text"
+                                name="emploi"
+                                value={newEmployee.emploi}
+                                onChange={handleInputChange}
+                            />
+                        </Form.Group>
+                        <Form.Group controlId="formCategorie">
+                            <Form.Label>Catégorie</Form.Label>
+                            <Form.Control
+                                type="text"
+                                name="categorie"
+                                value={newEmployee.categorie}
+                                onChange={handleInputChange}
+                            />
+                        </Form.Group>
+                        <Form.Group controlId="formEchelon">
+                            <Form.Label>Échelon</Form.Label>
+                            <Form.Control
+                                type="text"
+                                name="echelon"
+                                value={newEmployee.echelon}
+                                onChange={handleInputChange}
+                            />
+                        </Form.Group>
+                        <Form.Group controlId="formSituationFamiliale">
+                            <Form.Label>Situation Familiale</Form.Label>
+                            <Form.Control
+                                type="text"
+                                name="situationFamiliale"
+                                value={newEmployee.situationFamiliale}
+                                onChange={handleInputChange}
+                            />
+                        </Form.Group>
+                        <Form.Group controlId="formSalaireDeBase">
+                            <Form.Label>Salaire de Base</Form.Label>
+                            <Form.Control
+                                type="number"
+                                name="salaireDeBase"
+                                value={newEmployee.salaireDeBase}
+                                onChange={handleInputChange}
+                            />
+                        </Form.Group>
+                        <Form.Group controlId="formTauxHoraire">
+                            <Form.Label>Taux Horaire</Form.Label>
+                            <Form.Control
+                                type="number"
+                                name="tauxHoraire"
+                                value={newEmployee.tauxHoraire}
+                                onChange={handleInputChange}
+                            />
+                        </Form.Group>
+                        <Form.Group controlId="formEnfantsACharge">
+                            <Form.Label>Enfants à Charge</Form.Label>
+                            <Form.Control
+                                type="number"
+                                name="enfantsACharge"
+                                value={newEmployee.enfantsACharge}
+                                onChange={handleInputChange}
+                            />
+                        </Form.Group>
+                        <Form.Group controlId="formAffiliationCNSS">
+                            <Form.Label>Affiliation CNSS</Form.Label>
+                            <Form.Control
+                                type="text"
+                                name="affiliationCNSS"
+                                value={newEmployee.affiliationCNSS}
+                                onChange={handleInputChange}
+                            />
+                        </Form.Group>
+                    </Form>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowForm(false)}>
+                        Annuler
+                    </Button>
+                    <Button variant="primary" onClick={() => editingEmployee ? handleEditEmployee(editingEmployee) : handleAddEmployee()}>
                         {editingEmployee ? 'Modifier' : 'Ajouter'}
                     </Button>
-                </Form>
-            )}
+                </Modal.Footer>
+            </Modal>
         </div>
     );
-    };
+};
 
 export default Employes;
